@@ -1,4 +1,4 @@
-# Unassigned Issue Bot — Implementation Plan
+# dot
 
 Scans a configurable list of GitHub repos for **open issues that have no
 assignee and no linked open pull request**, and posts new matches to

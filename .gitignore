@@ -1,0 +1,17 @@
+# Environment & secrets
+.env
+config.yaml
+
+# Runtime state
+state.json
+state.json.tmp
+
+# Python cache & virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/

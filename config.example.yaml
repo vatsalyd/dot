@@ -1,0 +1,33 @@
+# Copy this file to config.yaml and edit the repo list below.
+# Add or remove repos any time -- no code changes needed.
+
+repos:
+  - owner: anthropics
+    name: anthropic-sdk-python
+  - owner: pallets
+    name: flask
+  - owner: psf
+    name: requests
+
+filters:
+  # Only alert on issues open for at least this many hours (skip brand-new issues
+  # people haven't had a chance to claim yet). Set to 0 to disable.
+  min_age_hours: 24
+
+  # Skip issues that have any of these labels (case-insensitive).
+  exclude_labels:
+    - "blocked"
+    - "wontfix"
+    - "duplicate"
+    - "needs-triage"
+
+  # Only include issues that have at least one of these labels.
+  # Leave empty to include all labels.
+  include_labels: []
+
+  # Re-notify about an issue if it's still unclaimed after this many days
+  # since it was first reported to you (0 = never re-notify, only once ever).
+  renotify_after_days: 7
+
+# Max number of issues to check per repo per GraphQL page (max 100).
+page_size: 50
