@@ -40,10 +40,20 @@ including GitHub's own UI. It's a good proxy, not a guarantee.
 
 ## 3. Setup
 
+### Quick Start (Recommended)
+
 ```bash
-cd github-issue-bot
 pip install -r requirements.txt
-cp config.example.yaml config.yaml   # then edit the repo list
+cp .env.example .env                  # add your GITHUB_TOKEN and WEBHOOK_URL
+python run.py --dry-run               # auto-loads .env, auto-bootstraps config.yaml, and previews
+python run.py                         # real run
+```
+
+### Manual Run
+
+```bash
+pip install -r requirements.txt
+cp config.example.yaml config.yaml   # edit the repo list
 export GITHUB_TOKEN=ghp_xxxxxxxx      # classic PAT, no scopes needed for public repos; "repo" scope for private
 export WEBHOOK_URL=https://hooks.slack.com/services/xxx/yyy/zzz
 python main.py --repo pallets/flask --dry-run # ad-hoc single repo test
@@ -61,11 +71,13 @@ per token, which is generous for issue-only queries.
 
 | File | Purpose |
 |---|---|
+| `run.py` | Streamlined launcher with automatic .env loading and config bootstrap |
 | `main.py` | Orchestrates scan -> filter -> notify -> save state |
 | `github_client.py` | GraphQL queries, pagination, PR cross-reference detection |
 | `notifier.py` | Slack/Discord webhook formatting + chunking |
-| `state.py` | JSON-backed dedupe store, atomic writes |
+| `state.py` | JSON or SQLite dedupe store, atomic writes, auto-migration |
 | `config.example.yaml` | Repo list + filters, copy to `config.yaml` |
+| `.env.example` | Template for environment variables |
 | `tests/` | Unit test suite (filter logic, GraphQL mocks, state) |
 
 ## 5. Suggested improvements (roughly in priority order)
