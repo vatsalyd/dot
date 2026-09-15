@@ -70,10 +70,11 @@ def main():
 
     token = os.environ.get("GITHUB_TOKEN")
     webhook_url = os.environ.get("WEBHOOK_URL")
+    slack_bot_token = os.environ.get("SLACK_BOT_TOKEN")
     if not token:
         sys.exit("ERROR: set GITHUB_TOKEN env var (needs 'repo' scope for private repos, or no scope for public-only).")
-    if not webhook_url and not args.dry_run:
-        sys.exit("ERROR: set WEBHOOK_URL env var, or pass --dry-run.")
+    if not webhook_url and not slack_bot_token and not args.dry_run:
+        sys.exit("ERROR: set either SLACK_BOT_TOKEN (to auto-create per-repo channels) or WEBHOOK_URL env var, or pass --dry-run.")
 
     config = {}
     if os.path.exists(args.config):
@@ -141,7 +142,13 @@ def main():
                 for m in matches:
                     print(f"    #{m['number']} {m['title']} -> {m['url']}")
             else:
-                notify(webhook_url, full_name, matches)
+                notify(
+                    webhook_url=webhook_url,
+                    repo_full_name=full_name,
+                    issues=matches,
+                    slack_bot_token=slack_bot_token,
+                    channel_override=repo.get("channel"),
+                )
         else:
             print("  No new matches.")
 
