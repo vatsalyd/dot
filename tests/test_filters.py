@@ -1,7 +1,7 @@
 import unittest
 from datetime import datetime, timezone, timedelta
 
-from main import passes_filters, issue_age_hours
+from main import passes_filters, issue_age_hours, sort_issues
 
 
 class TestFilterLogic(unittest.TestCase):
@@ -83,6 +83,18 @@ class TestFilterLogic(unittest.TestCase):
         filters = {"max_comments": 2}
         self.assertTrue(passes_filters(low_comments, filters))
         self.assertFalse(passes_filters(high_comments, filters))
+
+    def test_sort_issues_by_reactions(self):
+        i1 = {"number": 1, "createdAt": "2026-01-01T00:00:00Z", "reactions": {"totalCount": 2}}
+        i2 = {"number": 2, "createdAt": "2026-01-02T00:00:00Z", "reactions": {"totalCount": 10}}
+        sorted_list = sort_issues([i1, i2], sort_by="reactions")
+        self.assertEqual([x["number"] for x in sorted_list], [2, 1])
+
+    def test_sort_issues_by_comments(self):
+        i1 = {"number": 1, "createdAt": "2026-01-01T00:00:00Z", "comments": {"totalCount": 8}}
+        i2 = {"number": 2, "createdAt": "2026-01-02T00:00:00Z", "comments": {"totalCount": 1}}
+        sorted_list = sort_issues([i1, i2], sort_by="comments")
+        self.assertEqual([x["number"] for x in sorted_list], [2, 1])
 
 
 if __name__ == "__main__":

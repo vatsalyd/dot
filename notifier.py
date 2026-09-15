@@ -4,10 +4,36 @@ Notification dispatcher supporting:
 2. Incoming webhooks for Slack or Discord.
 """
 
+from datetime import datetime, timezone
 import re
 import requests
 
 SLACK_API_BASE = "https://slack.com/api"
+
+
+def format_issue_meta(issue: dict) -> str:
+    """Formats inline metadata: age, comments count, and thumbs up count."""
+    parts = []
+    created_at = issue.get("createdAt")
+    if created_at:
+        try:
+            dt = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+            age_hours = (datetime.now(timezone.utc) - dt).total_seconds() / 3600
+            if age_hours < 24:
+                parts.append(f"{max(0, int(age_hours))}h old")
+            else:
+                parts.append(f"{max(0, int(age_hours / 24))}d old")
+        except Exception:
+            pass
+
+    comments = issue.get("comments", {}).get("totalCount", 0)
+    parts.append(f"{comments} comment{'s' if comments != 1 else ''}")
+
+    reactions = issue.get("reactions", {}).get("totalCount", 0)
+    if reactions > 0:
+        parts.append(f"+{reactions} upvote{'s' if reactions != 1 else ''}")
+
+    return f" ({' | '.join(parts)})" if parts else ""
 
 
 def sanitize_channel_name(name: str) -> str:
@@ -28,13 +54,21 @@ def _is_discord(webhook_url: str) -> bool:
 
 
 def _format_slack(repo_full_name: str, issues: list[dict]) -> dict:
-    lines = [f"*<{i['url']}|#{i['number']}> {i['title']}*" for i in issues]
+    lines = []
+    for i in issues:
+        meta = format_issue_meta(i)
+        suffix = f" _{meta.strip()}_" if meta else ""
+        lines.append(f"*<{i['url']}|#{i['number']}> {i['title']}*{suffix}")
     text = f"*{repo_full_name}* - {len(issues)} unassigned issue(s) with no open PR:\n" + "\n".join(lines)
     return {"text": text}
 
 
 def _format_discord(repo_full_name: str, issues: list[dict]) -> dict:
-    lines = [f"[#{i['number']}]({i['url']}) {i['title']}" for i in issues]
+    lines = []
+    for i in issues:
+        meta = format_issue_meta(i)
+        suffix = f" *{meta.strip()}*" if meta else ""
+        lines.append(f"[#{i['number']}]({i['url']}) {i['title']}{suffix}")
     content = f"**{repo_full_name}** - {len(issues)} unassigned issue(s) with no open PR:\n" + "\n".join(lines)
     return {"content": content}
 

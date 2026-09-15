@@ -2,7 +2,14 @@ import unittest
 from unittest.mock import MagicMock
 import requests
 
-from notifier import sanitize_channel_name, SlackClient, notify, _format_slack, _format_discord
+from notifier import (
+    sanitize_channel_name,
+    SlackClient,
+    notify,
+    _format_slack,
+    _format_discord,
+    format_issue_meta,
+)
 
 
 class TestNotifier(unittest.TestCase):
@@ -13,10 +20,43 @@ class TestNotifier(unittest.TestCase):
         self.assertEqual(sanitize_channel_name(""), "unclaimed-issues")
         self.assertEqual(sanitize_channel_name("a" * 100), "a" * 80)
 
-    def test_format_slack(self):
-        issues = [{"title": "Bug in API", "url": "https://github.com/org/repo/issues/1", "number": 1}]
+    def test_format_issue_meta(self):
+        issue = {
+            "createdAt": "2026-01-01T00:00:00Z",
+            "comments": {"totalCount": 3},
+            "reactions": {"totalCount": 5},
+        }
+        meta = format_issue_meta(issue)
+        self.assertIn("3 comments", meta)
+        self.assertIn("+5 upvotes", meta)
+
+    def test_format_slack_with_metadata(self):
+        issues = [
+            {
+                "title": "Bug in API",
+                "url": "https://github.com/org/repo/issues/1",
+                "number": 1,
+                "comments": {"totalCount": 0},
+                "reactions": {"totalCount": 2},
+            }
+        ]
         payload = _format_slack("org/repo", issues)
         self.assertIn("*<https://github.com/org/repo/issues/1|#1> Bug in API*", payload["text"])
+        self.assertIn("+2 upvotes", payload["text"])
+
+    def test_format_discord_with_metadata(self):
+        issues = [
+            {
+                "title": "Bug in API",
+                "url": "https://github.com/org/repo/issues/1",
+                "number": 1,
+                "comments": {"totalCount": 4},
+                "reactions": {"totalCount": 0},
+            }
+        ]
+        payload = _format_discord("org/repo", issues)
+        self.assertIn("[#1](https://github.com/org/repo/issues/1) Bug in API", payload["content"])
+        self.assertIn("4 comments", payload["content"])
 
     def test_slack_client_finds_existing_channel(self):
         session = MagicMock()

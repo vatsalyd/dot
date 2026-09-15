@@ -83,6 +83,12 @@ class TestGitHubClient(unittest.TestCase):
         empty_node = {}
         self.assertEqual(GitHubClient.comment_count(empty_node), 0)
 
+    def test_reaction_count(self):
+        node = {"reactions": {"totalCount": 12}}
+        self.assertEqual(GitHubClient.reaction_count(node), 12)
+        empty_node = {}
+        self.assertEqual(GitHubClient.reaction_count(empty_node), 0)
+
     def test_get_retry_wait_parses_seconds(self):
         resp = requests.Response()
         resp.headers["Retry-After"] = "25"
