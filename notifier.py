@@ -6,6 +6,7 @@ Notification dispatcher supporting:
 
 from datetime import datetime, timezone
 import re
+import time
 import requests
 
 SLACK_API_BASE = "https://slack.com/api"
@@ -109,6 +110,44 @@ def _format_discord(repo_full_name: str, issues: list[dict]) -> dict:
     return {"content": content}
 
 
+def post_with_retry(
+    url: str,
+    json_data: dict,
+    session: requests.Session | None = None,
+    max_retries: int = 3,
+    base_wait: float = 1.0,
+) -> requests.Response:
+    """
+    POSTs JSON data with exponential backoff and Retry-After header handling
+    for transient errors (HTTP 429 rate limit, 5xx server error, or connection failures).
+    """
+    requester = session if session is not None else requests
+    resp = None
+    for attempt in range(max_retries):
+        try:
+            resp = requester.post(url, json=json_data, timeout=10)
+            if resp.status_code == 429 or 500 <= resp.status_code < 600:
+                if attempt < max_retries - 1:
+                    retry_after = resp.headers.get("Retry-After")
+                    try:
+                        wait = float(retry_after) if retry_after else (base_wait * (2**attempt))
+                    except ValueError:
+                        wait = base_wait * (2**attempt)
+                    time.sleep(wait)
+                    continue
+            resp.raise_for_status()
+            return resp
+        except (requests.ConnectionError, requests.Timeout):
+            if attempt < max_retries - 1:
+                time.sleep(base_wait * (2**attempt))
+                continue
+            raise
+    if resp is not None:
+        resp.raise_for_status()
+        return resp
+    raise RuntimeError(f"Failed to post to {url} after {max_retries} attempts.")
+
+
 class SlackClient:
     """Slack Web API client for dynamic per-repository channel management and posting."""
 
@@ -209,12 +248,11 @@ class SlackClient:
         for i in range(0, len(issues), 20):
             chunk = issues[i : i + 20]
             payload = _format_slack(repo_full_name, chunk)
-            resp = self.session.post(
+            resp = post_with_retry(
                 f"{SLACK_API_BASE}/chat.postMessage",
-                json={"channel": channel_id, "text": payload["text"]},
-                timeout=10,
+                json_data={"channel": channel_id, "text": payload["text"]},
+                session=self.session,
             )
-            resp.raise_for_status()
             data = resp.json()
             if not data.get("ok"):
                 raise RuntimeError(f"Slack postMessage to #{channel_id} failed: {data.get('error')}")
@@ -250,5 +288,4 @@ def notify(
     for i in range(0, len(issues), 20):
         chunk = issues[i : i + 20]
         payload = _format_discord(repo_full_name, chunk) if _is_discord(webhook_url) else _format_slack(repo_full_name, chunk)
-        resp = requests.post(webhook_url, json=payload, timeout=10)
-        resp.raise_for_status()
+        post_with_retry(webhook_url, json_data=payload)

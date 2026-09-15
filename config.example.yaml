@@ -63,3 +63,7 @@ sort_by: created
 # Max number of issues to check per repo per GraphQL page (max 100).
 page_size: 50
 
+# Emit structured JSON metrics to stdout on completion
+# metrics_json: false
+
+
