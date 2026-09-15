@@ -63,7 +63,7 @@ class SlackClient:
         cursor = None
         while True:
             params = {
-                "types": "public_channel,private_channel",
+                "types": "public_channel",
                 "exclude_archived": "true",
                 "limit": 200,
             }
@@ -97,9 +97,27 @@ class SlackClient:
             if data.get("ok"):
                 channel_id = data["channel"]["id"]
                 self._channel_cache[clean_name] = channel_id
+                self._ensure_joined(channel_id)
                 return channel_id
             if data.get("error") == "name_taken":
-                # Already exists (e.g. private or created concurrently), return name as channel identifier
+                # Fetch ID from public list
+                cursor = None
+                while True:
+                    p = {"types": "public_channel", "limit": 200}
+                    if cursor:
+                        p["cursor"] = cursor
+                    r = self.session.get(f"{SLACK_API_BASE}/conversations.list", params=p, timeout=10)
+                    if r.status_code == 200 and r.json().get("ok"):
+                        for ch in r.json().get("channels", []):
+                            if ch["name"] == clean_name:
+                                self._channel_cache[clean_name] = ch["id"]
+                                self._ensure_joined(ch["id"])
+                                return ch["id"]
+                        cursor = r.json().get("response_metadata", {}).get("next_cursor")
+                        if not cursor:
+                            break
+                    else:
+                        break
                 return clean_name
             raise RuntimeError(f"Failed to create Slack channel #{clean_name}: {data.get('error')}")
 
