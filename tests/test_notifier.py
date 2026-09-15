@@ -9,6 +9,7 @@ from notifier import (
     _format_slack,
     _format_discord,
     format_issue_meta,
+    post_with_retry,
 )
 
 
@@ -128,6 +129,27 @@ class TestNotifier(unittest.TestCase):
                 issues=issues,
                 slack_bot_token="xoxb-mock",
             )
+
+    def test_post_with_retry_succeeds_after_500(self):
+        session = MagicMock()
+        resp_500 = requests.Response()
+        resp_500.status_code = 500
+        resp_200 = requests.Response()
+        resp_200.status_code = 200
+
+        session.post.side_effect = [resp_500, resp_200]
+        resp = post_with_retry("https://mock.com", {"data": 1}, session=session, max_retries=2, base_wait=0.01)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(session.post.call_count, 2)
+
+    def test_post_with_retry_raises_on_persistent_failure(self):
+        session = MagicMock()
+        resp_500 = requests.Response()
+        resp_500.status_code = 500
+        session.post.return_value = resp_500
+
+        with self.assertRaises(requests.HTTPError):
+            post_with_retry("https://mock.com", {"data": 1}, session=session, max_retries=2, base_wait=0.01)
 
 
 if __name__ == "__main__":

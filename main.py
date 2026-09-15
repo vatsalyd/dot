@@ -14,8 +14,10 @@ Usage:
 
 import argparse
 import collections
+import json
 import os
 import sys
+import time
 from datetime import datetime, timezone
 
 import yaml
@@ -36,6 +38,7 @@ def parse_args():
     p.add_argument("--max-comments", type=int, default=None, help="Only alert on issues with at most this many comments.")
     p.add_argument("--priority-labels-only", action="store_true", help="Only alert on issues matching priority labels; log others.")
     p.add_argument("--sort-by", choices=["created", "reactions", "comments", "oldest"], default=None, help="Sort matched issues before notifying.")
+    p.add_argument("--metrics-json", action="store_true", help="Emit a structured JSON metrics line to stdout.")
     p.add_argument("--state", default="state.json", help="Path to state JSON file.")
     p.add_argument("--dry-run", action="store_true", help="Print results, don't send webhook or write state.")
     return p.parse_args()
@@ -156,9 +159,11 @@ def main():
     client = GitHubClient(token)
     state = load_state(args.state)
 
-    sort_by = args.sort_by or config.get("sort_by", "created")
-
+    start_time = time.time()
+    issues_scanned = 0
+    issues_reminded = 0
     total_matches = 0
+
     for repo in repos:
         owner, name = repo["owner"], repo["name"]
         full_name = f"{owner}/{name}"
@@ -167,6 +172,7 @@ def main():
         matches = []
         try:
             for issue in client.fetch_open_issues(owner, name, page_size):
+                issues_scanned += 1
                 # Early termination: GitHub returns issues ordered by CREATED_AT DESC (newest first).
                 # Once an issue exceeds max_age_days, all subsequent issues will also exceed it.
                 if max_age_days and max_age_days > 0 and (issue_age_hours(issue["createdAt"]) / 24) > max_age_days:
@@ -190,6 +196,8 @@ def main():
                     print(f"  [LOG ONLY: non-priority] #{issue['number']} {issue['title']}", file=sys.stderr)
                     continue
 
+                if is_reminder:
+                    issues_reminded += 1
                 matches.append(issue)
                 mark_notified(state, key)
         except Exception as e:
@@ -220,6 +228,7 @@ def main():
         org_repo_matches = collections.defaultdict(list)
         try:
             for issue in client.fetch_org_issues(org, page_size):
+                issues_scanned += 1
                 if max_age_days and max_age_days > 0 and (issue_age_hours(issue["createdAt"]) / 24) > max_age_days:
                     break
 
@@ -246,6 +255,8 @@ def main():
                     print(f"  [LOG ONLY: non-priority] #{issue['number']} {issue['title']}", file=sys.stderr)
                     continue
 
+                if is_reminder:
+                    issues_reminded += 1
                 org_repo_matches[full_name].append(issue)
                 mark_notified(state, key)
         except Exception as e:
@@ -273,6 +284,21 @@ def main():
 
     target_count = len(repos) + len(orgs)
     print(f"\nDone. {total_matches} total new match(es) across {target_count} target(s).")
+
+    emit_metrics = args.metrics_json or config.get("metrics_json", False)
+    if emit_metrics:
+        metrics = {
+            "targets_scanned": target_count,
+            "repos_scanned": len(repos),
+            "orgs_scanned": len(orgs),
+            "issues_scanned": issues_scanned,
+            "issues_matched": total_matches,
+            "issues_reminded": issues_reminded,
+            "issues_notified": 0 if args.dry_run else total_matches,
+            "duration_seconds": round(time.time() - start_time, 2),
+            "dry_run": args.dry_run,
+        }
+        print(json.dumps({"event": "scan_complete", "metrics": metrics}))
 
 
 if __name__ == "__main__":

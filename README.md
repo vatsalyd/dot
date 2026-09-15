@@ -81,35 +81,36 @@ per token, which is generous for issue-only queries.
 | `.env.example` | Template for environment variables |
 | `tests/` | Unit test suite (filter logic, GraphQL mocks, state, notifier) |
 
-## 5. Suggested improvements (roughly in priority order)
+## 5. Suggested improvements (all implemented)
 
 **Reliability / correctness**
 - Add a `--repo owner/name` flag to scan a single repo ad-hoc without editing config (implemented).
 - Handle GitHub's secondary rate limits more gracefully (exponential backoff with Retry-After and x-ratelimit-reset inspection) (implemented).
 - Add a unit test suite (mock GraphQL responses) covering the filter logic in `passes_filters` and `has_open_linked_pr` (implemented).
 - Switch `state.json` to SQLite once repo count or issue volume grows (implemented: pass `--state state.db` with automatic migration from `state.json`).
+- Retry and exponential backoff on webhook POST requests with Retry-After handling (implemented).
 
 **Automation**
 - Scheduled **GitHub Actions workflow** (`.github/workflows/scan.yml`) with cron trigger and state caching (implemented).
 - Alternative: a simple `cron` entry on a personal server/Raspberry Pi if you want it fully self-hosted.
 
 **Signal quality**
-- Add a "staleness" tier: separately flag issues that are unassigned **and** have had zero comments in N days (higher-confidence "truly untouched").
-- Cross-check against **draft PRs** too - currently a draft PR counts as "open" and will suppress the issue; you may want draft PRs to *not* count as claimed.
-- Pull in issue **reactions** (thumbs-up count) so you can sort/prioritize by community interest in the notification.
-- Support **org-wide scanning** (`org: anthropics` instead of an explicit repo list) using the `search` GraphQL root and a `is:issue is:open no:assignee` query, so you don't have to maintain the repo list by hand for large orgs.
+- Add a "staleness" tier: separately flag issues that are unassigned and have had zero comments (`--uncommented-only`, `--max-comments`) (implemented).
+- Cross-check against **draft PRs** too - `--ignore-draft-prs` ensures draft PRs do not count as claimed (implemented).
+- Pull in issue **reactions** (thumbs-up count) and sort by `--sort-by [reactions|comments|created|oldest]` (implemented).
+- Support **org-wide scanning** (`--org <name>` or `orgs:` list in config) using the `search` GraphQL root and a `is:issue is:open no:assignee` query (implemented).
 
 **Notification quality**
-- Group the daily/weekly digest into "new since last run" vs "still open reminder" sections instead of one flat list.
-- Add a minimum-priority filter so only `good-first-issue` / `help-wanted` labeled issues get pushed, with everything else just logged.
-- Include issue age and comment count inline in the Slack/Discord message for quick triage.
+- Group the daily/weekly digest into "New Unassigned Issues" vs "Still Open Reminders" sections instead of one flat list (implemented).
+- Add a minimum-priority filter (`--priority-labels-only`) so only priority-labeled issues get pushed, with everything else logged (implemented).
+- Include issue age, comment count, and upvotes inline in the Slack/Discord message for quick triage (implemented).
 
 **Ops**
-- Emit basic metrics (issues scanned, matched, notified) to stdout in a structured (JSON) line so you can pipe logs somewhere later if this grows beyond manual runs.
-- Add a `.env.example` and `python-dotenv` support so you don't have to `export` vars by hand every session.
+- Emit basic metrics (issues scanned, matched, notified, duration) to stdout in a structured JSON line via `--metrics-json` (implemented).
+- Add a `.env.example` and zero-dependency launcher `run.py` that auto-loads `.env` and auto-bootstraps `config.yaml` (implemented).
 
 ## 6. Known limitations to keep in mind
 
 - Cross-reference detection can produce false negatives (see §2).
-- GraphQL pagination fetches *all* open issues per repo before filtering - fine for repos with hundreds of issues, but very large repos (10k+ open issues) will be slow and costly on rate-limit points. Worth adding a `search` query with `is:issue is:open no:assignee` pre-filter server-side if that becomes an issue.
-- No retry/backoff on the webhook POST itself yet - a transient Slack/Discord outage will just error out that repo's notification for the run.
+- GraphQL repository pagination fetches issues per repo before filtering; for very large organizations, org-wide search (`--org`) pre-filters on the server side (`is:issue is:open no:assignee`).
+
