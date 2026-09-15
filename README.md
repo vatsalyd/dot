@@ -49,6 +49,7 @@ export WEBHOOK_URL=https://hooks.slack.com/services/xxx/yyy/zzz
 python main.py --repo pallets/flask --dry-run # ad-hoc single repo test
 python main.py --dry-run              # preview without posting or saving state
 python main.py                        # real run
+python -m unittest discover tests     # run unit test suite
 ```
 
 **Token scopes:** for public repos, a token with **no scopes** (or fine-
@@ -65,13 +66,14 @@ per token, which is generous for issue-only queries.
 | `notifier.py` | Slack/Discord webhook formatting + chunking |
 | `state.py` | JSON-backed dedupe store, atomic writes |
 | `config.example.yaml` | Repo list + filters, copy to `config.yaml` |
+| `tests/` | Unit test suite (filter logic, GraphQL mocks, state) |
 
 ## 5. Suggested improvements (roughly in priority order)
 
 **Reliability / correctness**
 - Add a `--repo owner/name` flag to scan a single repo ad-hoc without editing config (implemented).
 - Handle GitHub's secondary rate limits more gracefully (exponential backoff with Retry-After and x-ratelimit-reset inspection) (implemented).
-- Add a unit test suite (mock GraphQL responses) covering the filter logic in `passes_filters` and `has_open_linked_pr` - these are the parts most likely to silently misbehave.
+- Add a unit test suite (mock GraphQL responses) covering the filter logic in `passes_filters` and `has_open_linked_pr` (implemented).
 - Switch `state.json` to SQLite once repo count or issue volume grows - JSON rewrite-on-every-run is fine at small scale but won't scale past a few thousand tracked issues.
 
 **Automation**

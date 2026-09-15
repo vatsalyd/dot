@@ -1,0 +1,88 @@
+import unittest
+from unittest.mock import MagicMock
+import requests
+
+from github_client import GitHubClient
+
+
+class TestGitHubClient(unittest.TestCase):
+    def test_is_unassigned_true_when_zero(self):
+        node = {"assignees": {"totalCount": 0}}
+        self.assertTrue(GitHubClient.is_unassigned(node))
+
+    def test_is_unassigned_false_when_assigned(self):
+        node = {"assignees": {"totalCount": 2}}
+        self.assertFalse(GitHubClient.is_unassigned(node))
+
+    def test_has_open_linked_pr_true_when_open(self):
+        node = {
+            "timelineItems": {
+                "nodes": [
+                    {
+                        "source": {
+                            "number": 42,
+                            "state": "OPEN",
+                            "url": "https://github.com/owner/repo/pull/42",
+                        }
+                    }
+                ]
+            }
+        }
+        self.assertTrue(GitHubClient.has_open_linked_pr(node))
+
+    def test_has_open_linked_pr_false_when_merged_or_closed(self):
+        node = {
+            "timelineItems": {
+                "nodes": [
+                    {
+                        "source": {
+                            "number": 42,
+                            "state": "MERGED",
+                            "url": "https://github.com/owner/repo/pull/42",
+                        }
+                    },
+                    {
+                        "source": {
+                            "number": 43,
+                            "state": "CLOSED",
+                            "url": "https://github.com/owner/repo/pull/43",
+                        }
+                    },
+                ]
+            }
+        }
+        self.assertFalse(GitHubClient.has_open_linked_pr(node))
+
+    def test_has_open_linked_pr_false_when_empty_timeline(self):
+        node = {"timelineItems": {"nodes": []}}
+        self.assertFalse(GitHubClient.has_open_linked_pr(node))
+
+    def test_get_retry_wait_parses_seconds(self):
+        resp = requests.Response()
+        resp.headers["Retry-After"] = "25"
+        self.assertEqual(GitHubClient._get_retry_wait(resp, 5.0), 25.0)
+
+    def test_get_retry_wait_falls_back_to_default(self):
+        resp = requests.Response()
+        self.assertEqual(GitHubClient._get_retry_wait(resp, 10.0), 10.0)
+
+    def test_post_retries_on_rate_limit_and_succeeds(self):
+        session = MagicMock()
+        resp_429 = requests.Response()
+        resp_429.status_code = 429
+        resp_429.headers["Retry-After"] = "0.01"
+
+        resp_200 = requests.Response()
+        resp_200.status_code = 200
+        resp_200._content = b'{"data": {"repository": {"issues": {"nodes": []}}}}'
+
+        session.post.side_effect = [resp_429, resp_200]
+
+        client = GitHubClient(token="mock-token", session=session)
+        result = client._post("query", {})
+        self.assertIn("repository", result)
+        self.assertEqual(session.post.call_count, 2)
+
+
+if __name__ == "__main__":
+    unittest.main()
