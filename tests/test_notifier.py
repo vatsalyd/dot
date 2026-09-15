@@ -58,6 +58,26 @@ class TestNotifier(unittest.TestCase):
         self.assertIn("[#1](https://github.com/org/repo/issues/1) Bug in API", payload["content"])
         self.assertIn("4 comments", payload["content"])
 
+    def test_format_slack_digest_grouping(self):
+        issues = [
+            {"title": "New Bug", "url": "https://github.com/org/repo/issues/1", "number": 1, "is_reminder": False},
+            {"title": "Old Reminder", "url": "https://github.com/org/repo/issues/2", "number": 2, "is_reminder": True},
+        ]
+        payload = _format_slack("org/repo", issues)
+        self.assertIn("*New Unassigned Issues (1):*", payload["text"])
+        self.assertIn("*Still Open Reminders (1):*", payload["text"])
+        self.assertIn("#1", payload["text"])
+        self.assertIn("#2", payload["text"])
+
+    def test_format_discord_digest_grouping(self):
+        issues = [
+            {"title": "New Bug", "url": "https://github.com/org/repo/issues/1", "number": 1, "is_reminder": False},
+            {"title": "Old Reminder", "url": "https://github.com/org/repo/issues/2", "number": 2, "is_reminder": True},
+        ]
+        payload = _format_discord("org/repo", issues)
+        self.assertIn("**New Unassigned Issues (1):**", payload["content"])
+        self.assertIn("**Still Open Reminders (1):**", payload["content"])
+
     def test_slack_client_finds_existing_channel(self):
         session = MagicMock()
         resp_list = requests.Response()

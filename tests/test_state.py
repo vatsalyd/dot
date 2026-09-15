@@ -2,7 +2,7 @@ import os
 import unittest
 from datetime import datetime, timezone, timedelta
 
-from state import load_state, save_state, should_notify, mark_notified
+from state import load_state, save_state, should_notify, mark_notified, is_known
 
 
 class TestStateStore(unittest.TestCase):
@@ -54,6 +54,12 @@ class TestStateStore(unittest.TestCase):
         self.assertIn("owner/repo#1", state)
         self.assertIn("first_seen", state["owner/repo#1"])
         self.assertIn("last_notified", state["owner/repo#1"])
+
+    def test_is_known_dict(self):
+        state = {}
+        self.assertFalse(is_known(state, "owner/repo#1"))
+        mark_notified(state, "owner/repo#1")
+        self.assertTrue(is_known(state, "owner/repo#1"))
 
 
 class TestSQLiteStateStore(unittest.TestCase):
@@ -115,6 +121,13 @@ class TestSQLiteStateStore(unittest.TestCase):
         self.assertEqual(store.count(), 2)
         entry = store.get("org/repo#10")
         self.assertEqual(entry["first_seen"], "2026-01-01T00:00:00Z")
+
+    def test_is_known_sqlite(self):
+        store = load_state(self.db_path)
+        self.stores.append(store)
+        self.assertFalse(is_known(store, "test/repo#1"))
+        store.mark_notified("test/repo#1")
+        self.assertTrue(is_known(store, "test/repo#1"))
 
 
 if __name__ == "__main__":

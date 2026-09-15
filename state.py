@@ -69,6 +69,9 @@ class SQLiteStateStore:
                 (key, now, now),
             )
 
+    def __contains__(self, key: str) -> bool:
+        return self.get(key) is not None
+
     def count(self) -> int:
         cursor = self.conn.execute("SELECT COUNT(*) FROM issue_state")
         return cursor.fetchone()[0]
@@ -137,6 +140,11 @@ def should_notify(state, key: str, renotify_after_days: int) -> bool:
     last = datetime.fromisoformat(entry["last_notified"].replace("Z", "+00:00"))
     age_days = (datetime.now(timezone.utc) - last).total_seconds() / 86400
     return age_days >= renotify_after_days
+
+
+def is_known(state, key: str) -> bool:
+    """Returns True if the issue has been seen/notified previously."""
+    return key in state
 
 
 def mark_notified(state, key: str) -> None:

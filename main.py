@@ -21,7 +21,7 @@ import yaml
 
 from github_client import GitHubClient
 from notifier import notify, format_issue_meta
-from state import load_state, save_state, should_notify, mark_notified
+from state import load_state, save_state, should_notify, mark_notified, is_known
 
 
 def parse_args():
@@ -32,6 +32,7 @@ def parse_args():
     p.add_argument("--ignore-draft-prs", action="store_true", help="Do not count draft PRs as claiming an issue.")
     p.add_argument("--uncommented-only", action="store_true", help="Only alert on issues with zero comments.")
     p.add_argument("--max-comments", type=int, default=None, help="Only alert on issues with at most this many comments.")
+    p.add_argument("--priority-labels-only", action="store_true", help="Only alert on issues matching priority labels; log others.")
     p.add_argument("--sort-by", choices=["created", "reactions", "comments", "oldest"], default=None, help="Sort matched issues before notifying.")
     p.add_argument("--state", default="state.json", help="Path to state JSON file.")
     p.add_argument("--dry-run", action="store_true", help="Print results, don't send webhook or write state.")
@@ -69,6 +70,14 @@ def passes_filters(issue_node: dict, filters: dict) -> bool:
         return False
 
     return True
+
+
+def matches_priority(issue_node: dict, priority_labels: list[str]) -> bool:
+    if not priority_labels:
+        return True
+    issue_labels = {l["name"].lower() for l in issue_node.get("labels", {}).get("nodes", [])}
+    target_labels = {l.lower() for l in priority_labels}
+    return bool(issue_labels & target_labels)
 
 
 def sort_issues(issues: list[dict], sort_by: str = "created") -> list[dict]:
@@ -123,6 +132,14 @@ def main():
         filters["uncommented_only"] = True
     if args.max_comments is not None:
         filters["max_comments"] = args.max_comments
+    if args.priority_labels_only:
+        filters["priority_labels_only"] = True
+
+    priority_labels_only = filters.get("priority_labels_only", False)
+    priority_labels = filters.get(
+        "priority_labels",
+        ["good-first-issue", "good first issue", "help-wanted", "help wanted"],
+    )
 
     ignore_draft_prs = filters.get("ignore_draft_prs", False)
     max_age_days = filters.get("max_age_days", 0)
@@ -159,6 +176,13 @@ def main():
                 if not should_notify(state, key, renotify_after_days):
                     continue
 
+                is_reminder = is_known(state, key)
+                issue["is_reminder"] = is_reminder
+
+                if priority_labels_only and not matches_priority(issue, priority_labels):
+                    print(f"  [LOG ONLY: non-priority] #{issue['number']} {issue['title']}", file=sys.stderr)
+                    continue
+
                 matches.append(issue)
                 mark_notified(state, key)
         except Exception as e:
@@ -171,7 +195,8 @@ def main():
             print(f"  Found {len(matches)} matching issue(s).")
             if args.dry_run:
                 for m in matches:
-                    print(f"    #{m['number']} {m['title']}{format_issue_meta(m)} -> {m['url']}")
+                    tag = "[REMINDER]" if m.get("is_reminder") else "[NEW]"
+                    print(f"    {tag} #{m['number']} {m['title']}{format_issue_meta(m)} -> {m['url']}")
             else:
                 notify(
                     webhook_url=webhook_url,
