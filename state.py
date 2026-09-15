@@ -103,11 +103,11 @@ def is_sqlite_path(path: str) -> bool:
     return path.endswith((".db", ".sqlite", ".sqlite3"))
 
 
-def load_state(path: str = DEFAULT_STATE_PATH):
+def load_state(path: str = DEFAULT_STATE_PATH, auto_migrate: bool = True):
     if is_sqlite_path(path):
         store = SQLiteStateStore(path)
         # If database is freshly initialized, try migrating from state.json if present
-        if store.count() == 0 and os.path.exists(DEFAULT_STATE_PATH):
+        if auto_migrate and path in ("state.db", "state.sqlite") and store.count() == 0 and os.path.exists(DEFAULT_STATE_PATH):
             store.migrate_from_json(DEFAULT_STATE_PATH)
         return store
 

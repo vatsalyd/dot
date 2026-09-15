@@ -60,31 +60,44 @@ class TestSQLiteStateStore(unittest.TestCase):
     def setUp(self):
         self.db_path = "test_state.db"
         self.json_path = "test_migrate.json"
+        self.stores = []
+        self._cleanup()
+
+    def _cleanup(self):
+        for s in getattr(self, "stores", []):
+            try:
+                s.close()
+            except Exception:
+                pass
+        self.stores = []
         if os.path.exists(self.db_path):
-            os.remove(self.db_path)
+            try:
+                os.remove(self.db_path)
+            except Exception:
+                pass
         if os.path.exists(self.json_path):
-            os.remove(self.json_path)
+            try:
+                os.remove(self.json_path)
+            except Exception:
+                pass
 
     def tearDown(self):
-        if os.path.exists(self.db_path):
-            os.remove(self.db_path)
-        if os.path.exists(self.json_path):
-            os.remove(self.json_path)
+        self._cleanup()
 
     def test_sqlite_mark_and_retrieve(self):
         store = load_state(self.db_path)
+        self.stores.append(store)
         self.assertTrue(should_notify(store, "pallets/flask#1", 7))
         mark_notified(store, "pallets/flask#1")
         save_state(store, self.db_path)
 
         # Reopen
         store2 = load_state(self.db_path)
+        self.stores.append(store2)
         self.assertFalse(should_notify(store2, "pallets/flask#1", 7))
         entry = store2.get("pallets/flask#1")
         self.assertIsNotNone(entry)
         self.assertIn("last_notified", entry)
-        store.close()
-        store2.close()
 
     def test_sqlite_migration_from_json(self):
         json_data = {
@@ -96,12 +109,12 @@ class TestSQLiteStateStore(unittest.TestCase):
             json.dump(json_data, f)
 
         store = load_state(self.db_path)
+        self.stores.append(store)
         migrated = store.migrate_from_json(self.json_path)
         self.assertEqual(migrated, 2)
         self.assertEqual(store.count(), 2)
         entry = store.get("org/repo#10")
         self.assertEqual(entry["first_seen"], "2026-01-01T00:00:00Z")
-        store.close()
 
 
 if __name__ == "__main__":
