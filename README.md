@@ -70,7 +70,7 @@ per token, which is generous for issue-only queries.
 
 **Reliability / correctness**
 - Add a `--repo owner/name` flag to scan a single repo ad-hoc without editing config (implemented).
-- Handle GitHub's secondary rate limits more gracefully (exponential backoff is in place for 403/502/503, but consider reading the `Retry-After` header explicitly).
+- Handle GitHub's secondary rate limits more gracefully (exponential backoff with Retry-After and x-ratelimit-reset inspection) (implemented).
 - Add a unit test suite (mock GraphQL responses) covering the filter logic in `passes_filters` and `has_open_linked_pr` - these are the parts most likely to silently misbehave.
 - Switch `state.json` to SQLite once repo count or issue volume grows - JSON rewrite-on-every-run is fine at small scale but won't scale past a few thousand tracked issues.
 

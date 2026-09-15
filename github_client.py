@@ -19,6 +19,8 @@ already working on this."
 """
 
 import time
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 import requests
 
 GRAPHQL_URL = "https://api.github.com/graphql"
@@ -80,8 +82,35 @@ class GitHubClient:
             }
         )
 
-    def _post(self, query: str, variables: dict) -> dict:
-        for attempt in range(3):
+    @staticmethod
+    def _get_retry_wait(resp: requests.Response, default_wait: float) -> float:
+        """Inspects Retry-After and x-ratelimit-reset headers to determine backoff."""
+        retry_after = resp.headers.get("Retry-After")
+        if retry_after:
+            try:
+                return max(float(retry_after), 1.0)
+            except ValueError:
+                try:
+                    target = parsedate_to_datetime(retry_after)
+                    diff = (target - datetime.now(timezone.utc)).total_seconds()
+                    return max(diff, 1.0)
+                except Exception:
+                    pass
+
+        if resp.headers.get("x-ratelimit-remaining") == "0":
+            reset_header = resp.headers.get("x-ratelimit-reset")
+            if reset_header:
+                try:
+                    reset_time = float(reset_header)
+                    diff = reset_time - time.time()
+                    return max(diff, 1.0)
+                except ValueError:
+                    pass
+
+        return default_wait
+
+    def _post(self, query: str, variables: dict, max_attempts: int = 4) -> dict:
+        for attempt in range(max_attempts):
             resp = self.session.post(
                 GRAPHQL_URL, json={"query": query, "variables": variables}
             )
@@ -90,11 +119,15 @@ class GitHubClient:
                 if "errors" in data:
                     raise RuntimeError(f"GraphQL error: {data['errors']}")
                 return data["data"]
-            if resp.status_code in (502, 503) or resp.status_code == 403:
-                # 403 can mean secondary rate limit -- back off and retry.
-                wait = 2 ** attempt * 5
-                time.sleep(wait)
+
+            if resp.status_code in (403, 429, 500, 502, 503, 504):
+                if attempt == max_attempts - 1:
+                    resp.raise_for_status()
+                default_backoff = 2 ** attempt * 5
+                wait = self._get_retry_wait(resp, default_backoff)
+                time.sleep(min(wait, 60.0))
                 continue
+
             resp.raise_for_status()
         resp.raise_for_status()
 
