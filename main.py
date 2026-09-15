@@ -55,6 +55,11 @@ def passes_filters(issue_node: dict, filters: dict) -> bool:
 
 
 def main():
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
     args = parse_args()
 
     token = os.environ.get("GITHUB_TOKEN")

@@ -51,6 +51,11 @@ def bootstrap_config(config_path: str = "config.yaml", example_path: str = "conf
 
 
 def run():
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
     # Allow --help / -h without requiring credentials
     if any(arg in ("-h", "--help") for arg in sys.argv[1:]):
         from main import parse_args
