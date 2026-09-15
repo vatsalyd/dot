@@ -57,6 +57,32 @@ class TestGitHubClient(unittest.TestCase):
         node = {"timelineItems": {"nodes": []}}
         self.assertFalse(GitHubClient.has_open_linked_pr(node))
 
+    def test_has_open_linked_pr_ignores_draft_pr_when_flag_is_set(self):
+        node = {
+            "timelineItems": {
+                "nodes": [
+                    {
+                        "source": {
+                            "number": 42,
+                            "state": "OPEN",
+                            "isDraft": True,
+                            "url": "https://github.com/owner/repo/pull/42",
+                        }
+                    }
+                ]
+            }
+        }
+        # Default behavior: draft PR is treated as open linked PR
+        self.assertTrue(GitHubClient.has_open_linked_pr(node, ignore_draft_prs=False))
+        # With ignore_draft_prs=True: draft PR is ignored
+        self.assertFalse(GitHubClient.has_open_linked_pr(node, ignore_draft_prs=True))
+
+    def test_comment_count(self):
+        node = {"comments": {"totalCount": 5}}
+        self.assertEqual(GitHubClient.comment_count(node), 5)
+        empty_node = {}
+        self.assertEqual(GitHubClient.comment_count(empty_node), 0)
+
     def test_get_retry_wait_parses_seconds(self):
         resp = requests.Response()
         resp.headers["Retry-After"] = "25"

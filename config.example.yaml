@@ -38,5 +38,12 @@ filters:
   # since it was first reported to you (0 = never re-notify, only once ever).
   renotify_after_days: 7
 
+  # If true, draft PRs will NOT count as claiming an issue.
+  ignore_draft_prs: false
+
+  # Only alert on issues with zero comments (true) or max N comments (e.g. 2).
+  # uncommented_only: false
+  # max_comments: 2
+
 # Max number of issues to check per repo per GraphQL page (max 100).
 page_size: 50

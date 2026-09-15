@@ -29,6 +29,9 @@ def parse_args():
     p.add_argument("--config", default="config.yaml", help="Path to config YAML file.")
     p.add_argument("--repo", help="Scan a single repository ad-hoc (format: owner/name).")
     p.add_argument("--max-age-days", type=int, default=None, help="Ignore issues older than this many days (0 = no limit).")
+    p.add_argument("--ignore-draft-prs", action="store_true", help="Do not count draft PRs as claiming an issue.")
+    p.add_argument("--uncommented-only", action="store_true", help="Only alert on issues with zero comments.")
+    p.add_argument("--max-comments", type=int, default=None, help="Only alert on issues with at most this many comments.")
     p.add_argument("--state", default="state.json", help="Path to state JSON file.")
     p.add_argument("--dry-run", action="store_true", help="Print results, don't send webhook or write state.")
     return p.parse_args()
@@ -46,6 +49,13 @@ def passes_filters(issue_node: dict, filters: dict) -> bool:
 
     max_age_days = filters.get("max_age_days", 0)
     if max_age_days and max_age_days > 0 and (age_hours / 24) > max_age_days:
+        return False
+
+    # Staleness tier: comment count filtering
+    comments = GitHubClient.comment_count(issue_node)
+    if filters.get("uncommented_only") and comments > 0:
+        return False
+    if filters.get("max_comments") is not None and comments > filters["max_comments"]:
         return False
 
     labels = {l["name"].lower() for l in issue_node["labels"]["nodes"]}
@@ -96,7 +106,14 @@ def main():
     filters = config.get("filters", {})
     if args.max_age_days is not None:
         filters["max_age_days"] = args.max_age_days
+    if args.ignore_draft_prs:
+        filters["ignore_draft_prs"] = True
+    if args.uncommented_only:
+        filters["uncommented_only"] = True
+    if args.max_comments is not None:
+        filters["max_comments"] = args.max_comments
 
+    ignore_draft_prs = filters.get("ignore_draft_prs", False)
     max_age_days = filters.get("max_age_days", 0)
     page_size = config.get("page_size", 50)
     renotify_after_days = filters.get("renotify_after_days", 7)
@@ -120,7 +137,7 @@ def main():
 
                 if not GitHubClient.is_unassigned(issue):
                     continue
-                if GitHubClient.has_open_linked_pr(issue):
+                if GitHubClient.has_open_linked_pr(issue, ignore_draft_prs=ignore_draft_prs):
                     continue
                 if not passes_filters(issue, filters):
                     continue
