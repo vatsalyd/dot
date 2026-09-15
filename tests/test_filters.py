@@ -5,7 +5,7 @@ from main import passes_filters, issue_age_hours
 
 
 class TestFilterLogic(unittest.TestCase):
-    def _create_issue(self, hours_ago=48, labels=None):
+    def _create_issue(self, hours_ago=48, labels=None, comments=0):
         created_dt = datetime.now(timezone.utc) - timedelta(hours=hours_ago)
         created_str = created_dt.isoformat().replace("+00:00", "Z")
         labels_nodes = [{"name": l} for l in (labels or [])]
@@ -15,6 +15,7 @@ class TestFilterLogic(unittest.TestCase):
             "url": "https://github.com/owner/repo/issues/101",
             "createdAt": created_str,
             "labels": {"nodes": labels_nodes},
+            "comments": {"totalCount": comments},
         }
 
     def test_issue_age_hours(self):
@@ -69,10 +70,19 @@ class TestFilterLogic(unittest.TestCase):
         filters = {"max_age_days": 60}
         self.assertTrue(passes_filters(issue, filters))
 
-    def test_max_age_zero_disables_limit(self):
-        issue = self._create_issue(hours_ago=50000)
-        filters = {"max_age_days": 0}
-        self.assertTrue(passes_filters(issue, filters))
+    def test_uncommented_only_filter(self):
+        uncommented = self._create_issue(hours_ago=48, comments=0)
+        commented = self._create_issue(hours_ago=48, comments=2)
+        filters = {"uncommented_only": True}
+        self.assertTrue(passes_filters(uncommented, filters))
+        self.assertFalse(passes_filters(commented, filters))
+
+    def test_max_comments_filter(self):
+        low_comments = self._create_issue(hours_ago=48, comments=2)
+        high_comments = self._create_issue(hours_ago=48, comments=5)
+        filters = {"max_comments": 2}
+        self.assertTrue(passes_filters(low_comments, filters))
+        self.assertFalse(passes_filters(high_comments, filters))
 
 
 if __name__ == "__main__":

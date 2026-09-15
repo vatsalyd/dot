@@ -43,6 +43,9 @@ query($owner: String!, $name: String!, $pageSize: Int!, $after: String) {
         title
         url
         createdAt
+        comments {
+          totalCount
+        }
         assignees(first: 1) {
           totalCount
         }
@@ -58,6 +61,7 @@ query($owner: String!, $name: String!, $pageSize: Int!, $after: String) {
                 ... on PullRequest {
                   number
                   state
+                  isDraft
                   url
                 }
               }
@@ -153,12 +157,18 @@ class GitHubClient:
                 break
 
     @staticmethod
-    def has_open_linked_pr(issue_node: dict) -> bool:
+    def has_open_linked_pr(issue_node: dict, ignore_draft_prs: bool = False) -> bool:
         for item in issue_node["timelineItems"]["nodes"]:
             source = item.get("source")
             if source and source.get("state") == "OPEN":
+                if ignore_draft_prs and source.get("isDraft"):
+                    continue
                 return True
         return False
+
+    @staticmethod
+    def comment_count(issue_node: dict) -> int:
+        return issue_node.get("comments", {}).get("totalCount", 0)
 
     @staticmethod
     def is_unassigned(issue_node: dict) -> bool:
