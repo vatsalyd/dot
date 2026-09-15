@@ -45,5 +45,9 @@ filters:
   # uncommented_only: false
   # max_comments: 2
 
+# Sort matched issues before notifying: created, reactions (most upvotes), comments, oldest
+sort_by: created
+
 # Max number of issues to check per repo per GraphQL page (max 100).
 page_size: 50
+

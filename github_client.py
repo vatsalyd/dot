@@ -46,6 +46,9 @@ query($owner: String!, $name: String!, $pageSize: Int!, $after: String) {
         comments {
           totalCount
         }
+        reactions(content: THUMBS_UP) {
+          totalCount
+        }
         assignees(first: 1) {
           totalCount
         }
@@ -169,6 +172,10 @@ class GitHubClient:
     @staticmethod
     def comment_count(issue_node: dict) -> int:
         return issue_node.get("comments", {}).get("totalCount", 0)
+
+    @staticmethod
+    def reaction_count(issue_node: dict) -> int:
+        return issue_node.get("reactions", {}).get("totalCount", 0)
 
     @staticmethod
     def is_unassigned(issue_node: dict) -> bool:

@@ -20,7 +20,7 @@ from datetime import datetime, timezone
 import yaml
 
 from github_client import GitHubClient
-from notifier import notify
+from notifier import notify, format_issue_meta
 from state import load_state, save_state, should_notify, mark_notified
 
 
@@ -32,6 +32,7 @@ def parse_args():
     p.add_argument("--ignore-draft-prs", action="store_true", help="Do not count draft PRs as claiming an issue.")
     p.add_argument("--uncommented-only", action="store_true", help="Only alert on issues with zero comments.")
     p.add_argument("--max-comments", type=int, default=None, help="Only alert on issues with at most this many comments.")
+    p.add_argument("--sort-by", choices=["created", "reactions", "comments", "oldest"], default=None, help="Sort matched issues before notifying.")
     p.add_argument("--state", default="state.json", help="Path to state JSON file.")
     p.add_argument("--dry-run", action="store_true", help="Print results, don't send webhook or write state.")
     return p.parse_args()
@@ -68,6 +69,16 @@ def passes_filters(issue_node: dict, filters: dict) -> bool:
         return False
 
     return True
+
+
+def sort_issues(issues: list[dict], sort_by: str = "created") -> list[dict]:
+    if sort_by == "reactions":
+        return sorted(issues, key=lambda x: GitHubClient.reaction_count(x), reverse=True)
+    elif sort_by == "comments":
+        return sorted(issues, key=lambda x: GitHubClient.comment_count(x))
+    elif sort_by == "oldest":
+        return sorted(issues, key=lambda x: x.get("createdAt", ""))
+    return issues
 
 
 def main():
@@ -121,6 +132,8 @@ def main():
     client = GitHubClient(token)
     state = load_state(args.state)
 
+    sort_by = args.sort_by or config.get("sort_by", "created")
+
     total_matches = 0
     for repo in repos:
         owner, name = repo["owner"], repo["name"]
@@ -154,10 +167,11 @@ def main():
 
         total_matches += len(matches)
         if matches:
+            matches = sort_issues(matches, sort_by=sort_by)
             print(f"  Found {len(matches)} matching issue(s).")
             if args.dry_run:
                 for m in matches:
-                    print(f"    #{m['number']} {m['title']} -> {m['url']}")
+                    print(f"    #{m['number']} {m['title']}{format_issue_meta(m)} -> {m['url']}")
             else:
                 notify(
                     webhook_url=webhook_url,
