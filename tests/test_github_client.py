@@ -115,6 +115,35 @@ class TestGitHubClient(unittest.TestCase):
         self.assertIn("repository", result)
         self.assertEqual(session.post.call_count, 2)
 
+    def test_fetch_org_issues_yields_issues(self):
+        session = MagicMock()
+        resp = requests.Response()
+        resp.status_code = 200
+        resp._content = b'''{
+            "data": {
+                "search": {
+                    "issueCount": 1,
+                    "pageInfo": {"hasNextPage": false, "endCursor": null},
+                    "nodes": [
+                        {
+                            "number": 55,
+                            "title": "Org wide issue",
+                            "url": "https://github.com/org/repo/issues/55",
+                            "createdAt": "2026-01-01T00:00:00Z",
+                            "repository": {"name": "repo", "owner": {"login": "org"}}
+                        }
+                    ]
+                }
+            }
+        }'''
+        session.post.return_value = resp
+
+        client = GitHubClient(token="mock-token", session=session)
+        issues = list(client.fetch_org_issues("org", page_size=20))
+        self.assertEqual(len(issues), 1)
+        self.assertEqual(issues[0]["number"], 55)
+        self.assertEqual(issues[0]["repository"]["name"], "repo")
+
 
 if __name__ == "__main__":
     unittest.main()

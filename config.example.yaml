@@ -15,6 +15,10 @@ repos:
   - owner: future-agi
     name: future-agi
 
+# Optional: Scan entire GitHub organizations via search (org:<name> is:issue is:open no:assignee).
+# orgs:
+#   - anthropics
+
 filters:
   # Only alert on issues open for at least this many hours (skip brand-new issues
   # people haven't had a chance to claim yet). Set to 0 to disable.
