@@ -54,22 +54,58 @@ def _is_discord(webhook_url: str) -> bool:
 
 
 def _format_slack(repo_full_name: str, issues: list[dict]) -> dict:
-    lines = []
-    for i in issues:
+    new_issues = [i for i in issues if not i.get("is_reminder")]
+    reminders = [i for i in issues if i.get("is_reminder")]
+
+    def _render_line(i: dict) -> str:
         meta = format_issue_meta(i)
         suffix = f" _{meta.strip()}_" if meta else ""
-        lines.append(f"*<{i['url']}|#{i['number']}> {i['title']}*{suffix}")
-    text = f"*{repo_full_name}* - {len(issues)} unassigned issue(s) with no open PR:\n" + "\n".join(lines)
+        return f"*<{i['url']}|#{i['number']}> {i['title']}*{suffix}"
+
+    if new_issues and reminders:
+        sections = [f"*{repo_full_name}* - {len(issues)} unassigned issue(s) with no open PR:"]
+        sections.append(f"\n*New Unassigned Issues ({len(new_issues)}):*")
+        sections.extend([_render_line(i) for i in new_issues])
+        sections.append(f"\n*Still Open Reminders ({len(reminders)}):*")
+        sections.extend([_render_line(i) for i in reminders])
+        text = "\n".join(sections)
+    elif reminders:
+        sections = [f"*{repo_full_name}* - {len(issues)} unassigned issue(s) with no open PR:"]
+        sections.append(f"\n*Still Open Reminders ({len(reminders)}):*")
+        sections.extend([_render_line(i) for i in reminders])
+        text = "\n".join(sections)
+    else:
+        lines = [_render_line(i) for i in issues]
+        text = f"*{repo_full_name}* - {len(issues)} unassigned issue(s) with no open PR:\n" + "\n".join(lines)
+
     return {"text": text}
 
 
 def _format_discord(repo_full_name: str, issues: list[dict]) -> dict:
-    lines = []
-    for i in issues:
+    new_issues = [i for i in issues if not i.get("is_reminder")]
+    reminders = [i for i in issues if i.get("is_reminder")]
+
+    def _render_line(i: dict) -> str:
         meta = format_issue_meta(i)
         suffix = f" *{meta.strip()}*" if meta else ""
-        lines.append(f"[#{i['number']}]({i['url']}) {i['title']}{suffix}")
-    content = f"**{repo_full_name}** - {len(issues)} unassigned issue(s) with no open PR:\n" + "\n".join(lines)
+        return f"[#{i['number']}]({i['url']}) {i['title']}{suffix}"
+
+    if new_issues and reminders:
+        sections = [f"**{repo_full_name}** - {len(issues)} unassigned issue(s) with no open PR:"]
+        sections.append(f"\n**New Unassigned Issues ({len(new_issues)}):**")
+        sections.extend([_render_line(i) for i in new_issues])
+        sections.append(f"\n**Still Open Reminders ({len(reminders)}):**")
+        sections.extend([_render_line(i) for i in reminders])
+        content = "\n".join(sections)
+    elif reminders:
+        sections = [f"**{repo_full_name}** - {len(issues)} unassigned issue(s) with no open PR:"]
+        sections.append(f"\n**Still Open Reminders ({len(reminders)}):**")
+        sections.extend([_render_line(i) for i in reminders])
+        content = "\n".join(sections)
+    else:
+        lines = [_render_line(i) for i in issues]
+        content = f"**{repo_full_name}** - {len(issues)} unassigned issue(s) with no open PR:\n" + "\n".join(lines)
+
     return {"content": content}
 
 

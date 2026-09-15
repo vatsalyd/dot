@@ -45,6 +45,14 @@ filters:
   # uncommented_only: false
   # max_comments: 2
 
+  # Priority labels filter: only notify on issues with these labels, logging other matches.
+  # priority_labels_only: false
+  # priority_labels:
+  #   - "good-first-issue"
+  #   - "good first issue"
+  #   - "help-wanted"
+  #   - "help wanted"
+
 # Sort matched issues before notifying: created, reactions (most upvotes), comments, oldest
 sort_by: created
 

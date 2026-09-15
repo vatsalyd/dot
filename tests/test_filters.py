@@ -1,7 +1,7 @@
 import unittest
 from datetime import datetime, timezone, timedelta
 
-from main import passes_filters, issue_age_hours, sort_issues
+from main import passes_filters, issue_age_hours, sort_issues, matches_priority
 
 
 class TestFilterLogic(unittest.TestCase):
@@ -95,6 +95,14 @@ class TestFilterLogic(unittest.TestCase):
         i2 = {"number": 2, "createdAt": "2026-01-02T00:00:00Z", "comments": {"totalCount": 1}}
         sorted_list = sort_issues([i1, i2], sort_by="comments")
         self.assertEqual([x["number"] for x in sorted_list], [2, 1])
+
+    def test_matches_priority(self):
+        issue_p = {"labels": {"nodes": [{"name": "Good First Issue"}]}}
+        issue_np = {"labels": {"nodes": [{"name": "Documentation"}]}}
+        priority_labels = ["good-first-issue", "good first issue", "help-wanted"]
+        self.assertTrue(matches_priority(issue_p, priority_labels))
+        self.assertFalse(matches_priority(issue_np, priority_labels))
+        self.assertTrue(matches_priority(issue_np, []))
 
 
 if __name__ == "__main__":
