@@ -28,6 +28,7 @@ def parse_args():
     p = argparse.ArgumentParser(description="Find unassigned, unclaimed GitHub issues.")
     p.add_argument("--config", default="config.yaml", help="Path to config YAML file.")
     p.add_argument("--repo", help="Scan a single repository ad-hoc (format: owner/name).")
+    p.add_argument("--max-age-days", type=int, default=None, help="Ignore issues older than this many days (0 = no limit).")
     p.add_argument("--state", default="state.json", help="Path to state JSON file.")
     p.add_argument("--dry-run", action="store_true", help="Print results, don't send webhook or write state.")
     return p.parse_args()
@@ -39,7 +40,12 @@ def issue_age_hours(created_at: str) -> float:
 
 
 def passes_filters(issue_node: dict, filters: dict) -> bool:
-    if issue_age_hours(issue_node["createdAt"]) < filters.get("min_age_hours", 0):
+    age_hours = issue_age_hours(issue_node["createdAt"])
+    if age_hours < filters.get("min_age_hours", 0):
+        return False
+
+    max_age_days = filters.get("max_age_days", 0)
+    if max_age_days and max_age_days > 0 and (age_hours / 24) > max_age_days:
         return False
 
     labels = {l["name"].lower() for l in issue_node["labels"]["nodes"]}
@@ -87,6 +93,10 @@ def main():
             sys.exit("ERROR: no repositories configured in config file.")
 
     filters = config.get("filters", {})
+    if args.max_age_days is not None:
+        filters["max_age_days"] = args.max_age_days
+
+    max_age_days = filters.get("max_age_days", 0)
     page_size = config.get("page_size", 50)
     renotify_after_days = filters.get("renotify_after_days", 7)
 
@@ -102,6 +112,11 @@ def main():
         matches = []
         try:
             for issue in client.fetch_open_issues(owner, name, page_size):
+                # Early termination: GitHub returns issues ordered by CREATED_AT DESC (newest first).
+                # Once an issue exceeds max_age_days, all subsequent issues will also exceed it.
+                if max_age_days and max_age_days > 0 and (issue_age_hours(issue["createdAt"]) / 24) > max_age_days:
+                    break
+
                 if not GitHubClient.is_unassigned(issue):
                     continue
                 if GitHubClient.has_open_linked_pr(issue):

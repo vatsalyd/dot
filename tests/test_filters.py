@@ -57,6 +57,23 @@ class TestFilterLogic(unittest.TestCase):
         filters = {"include_labels": []}
         self.assertTrue(passes_filters(issue, filters))
 
+    def test_max_age_filter_skips_very_old_issue(self):
+        # 100 days old (2400 hours)
+        issue = self._create_issue(hours_ago=2400)
+        filters = {"max_age_days": 60}
+        self.assertFalse(passes_filters(issue, filters))
+
+    def test_max_age_filter_passes_recent_issue(self):
+        # 10 days old (240 hours)
+        issue = self._create_issue(hours_ago=240)
+        filters = {"max_age_days": 60}
+        self.assertTrue(passes_filters(issue, filters))
+
+    def test_max_age_zero_disables_limit(self):
+        issue = self._create_issue(hours_ago=50000)
+        filters = {"max_age_days": 0}
+        self.assertTrue(passes_filters(issue, filters))
+
 
 if __name__ == "__main__":
     unittest.main()

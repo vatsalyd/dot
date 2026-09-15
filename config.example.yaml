@@ -20,6 +20,9 @@ filters:
   # people haven't had a chance to claim yet). Set to 0 to disable.
   min_age_hours: 24
 
+  # Ignore issues older than this many days (e.g., 30, 60, or 90). Set to 0 to disable.
+  max_age_days: 60
+
   # Skip issues that have any of these labels (case-insensitive).
   exclude_labels:
     - "blocked"
