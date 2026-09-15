@@ -46,6 +46,7 @@ pip install -r requirements.txt
 cp config.example.yaml config.yaml   # then edit the repo list
 export GITHUB_TOKEN=ghp_xxxxxxxx      # classic PAT, no scopes needed for public repos; "repo" scope for private
 export WEBHOOK_URL=https://hooks.slack.com/services/xxx/yyy/zzz
+python main.py --repo pallets/flask --dry-run # ad-hoc single repo test
 python main.py --dry-run              # preview without posting or saving state
 python main.py                        # real run
 ```
@@ -59,7 +60,7 @@ per token, which is generous for issue-only queries.
 
 | File | Purpose |
 |---|---|
-| `main.py` | Orchestrates scan → filter → notify → save state |
+| `main.py` | Orchestrates scan -> filter -> notify -> save state |
 | `github_client.py` | GraphQL queries, pagination, PR cross-reference detection |
 | `notifier.py` | Slack/Discord webhook formatting + chunking |
 | `state.py` | JSON-backed dedupe store, atomic writes |
@@ -68,7 +69,7 @@ per token, which is generous for issue-only queries.
 ## 5. Suggested improvements (roughly in priority order)
 
 **Reliability / correctness**
-- Add a `--repo owner/name` flag to scan a single repo ad-hoc without editing config.
+- Add a `--repo owner/name` flag to scan a single repo ad-hoc without editing config (implemented).
 - Handle GitHub's secondary rate limits more gracefully (exponential backoff is in place for 403/502/503, but consider reading the `Retry-After` header explicitly).
 - Add a unit test suite (mock GraphQL responses) covering the filter logic in `passes_filters` and `has_open_linked_pr` - these are the parts most likely to silently misbehave.
 - Switch `state.json` to SQLite once repo count or issue volume grows - JSON rewrite-on-every-run is fine at small scale but won't scale past a few thousand tracked issues.
