@@ -10,7 +10,7 @@ Slack or Discord. Runs manually via `python main.py`.
    touching code.
 2. For each repo, the bot queries GitHub's **GraphQL API** for all open
    issues, pulling `assignees`, `labels`, and `timelineItems` (cross-
-   referenced PRs) in a single paginated query per repo — much cheaper
+   referenced PRs) in a single paginated query per repo - much cheaper
    than the REST equivalent (which would need one call per issue to
    check for linked PRs).
 3. **Filtering**, in order:
@@ -23,7 +23,7 @@ Slack or Discord. Runs manually via `python main.py`.
    Discord webhook (auto-detected from the URL).
 5. `state.json` is updated so the same issue isn't re-announced every run.
 
-## 2. Detecting "no PR" — the important caveat
+## 2. Detecting "no PR" - the important caveat
 
 GitHub does **not** expose a clean "linked PR" field via the API. The
 signal used here is `CrossReferencedEvent`: it fires whenever a PR's
@@ -31,9 +31,9 @@ title/body/commit message mentions `#<issue-number>` (this is also what
 powers the "Development" sidebar and `Closes #123` auto-linking on
 github.com). So:
 
-- ✅ Catches: PRs that reference the issue via `fixes #123`, `closes #123`,
+- Catches: PRs that reference the issue via `fixes #123`, `closes #123`,
   or a plain `#123` mention.
-- ❌ Misses: a PR that solves the issue but never mentions its number.
+- Misses: a PR that solves the issue but never mentions its number.
 
 This is the same limitation every "find unclaimed issues" tool has,
 including GitHub's own UI. It's a good proxy, not a guarantee.
@@ -70,17 +70,17 @@ per token, which is generous for issue-only queries.
 **Reliability / correctness**
 - Add a `--repo owner/name` flag to scan a single repo ad-hoc without editing config.
 - Handle GitHub's secondary rate limits more gracefully (exponential backoff is in place for 403/502/503, but consider reading the `Retry-After` header explicitly).
-- Add a unit test suite (mock GraphQL responses) covering the filter logic in `passes_filters` and `has_open_linked_pr` — these are the parts most likely to silently misbehave.
-- Switch `state.json` to SQLite once repo count or issue volume grows — JSON rewrite-on-every-run is fine at small scale but won't scale past a few thousand tracked issues.
+- Add a unit test suite (mock GraphQL responses) covering the filter logic in `passes_filters` and `has_open_linked_pr` - these are the parts most likely to silently misbehave.
+- Switch `state.json` to SQLite once repo count or issue volume grows - JSON rewrite-on-every-run is fine at small scale but won't scale past a few thousand tracked issues.
 
 **Automation**
-- Once you're happy with manual runs, move to a scheduled **GitHub Actions workflow** (`schedule: cron`) — free, no server to maintain, and `GITHUB_TOKEN`/`WEBHOOK_URL` live as repo secrets. This is a ~15 line YAML addition, happy to write it when you're ready.
+- Once you're happy with manual runs, move to a scheduled **GitHub Actions workflow** (`schedule: cron`) - free, no server to maintain, and `GITHUB_TOKEN`/`WEBHOOK_URL` live as repo secrets. This is a ~15 line YAML addition, happy to write it when you're ready.
 - Alternative: a simple `cron` entry on a personal server/Raspberry Pi if you want it fully self-hosted.
 
 **Signal quality**
 - Add a "staleness" tier: separately flag issues that are unassigned **and** have had zero comments in N days (higher-confidence "truly untouched").
-- Cross-check against **draft PRs** too — currently a draft PR counts as "open" and will suppress the issue; you may want draft PRs to *not* count as claimed.
-- Pull in issue **reactions** (👍 count) so you can sort/prioritize by community interest in the notification.
+- Cross-check against **draft PRs** too - currently a draft PR counts as "open" and will suppress the issue; you may want draft PRs to *not* count as claimed.
+- Pull in issue **reactions** (thumbs-up count) so you can sort/prioritize by community interest in the notification.
 - Support **org-wide scanning** (`org: anthropics` instead of an explicit repo list) using the `search` GraphQL root and a `is:issue is:open no:assignee` query, so you don't have to maintain the repo list by hand for large orgs.
 
 **Notification quality**
@@ -95,5 +95,5 @@ per token, which is generous for issue-only queries.
 ## 6. Known limitations to keep in mind
 
 - Cross-reference detection can produce false negatives (see §2).
-- GraphQL pagination fetches *all* open issues per repo before filtering — fine for repos with hundreds of issues, but very large repos (10k+ open issues) will be slow and costly on rate-limit points. Worth adding a `search` query with `is:issue is:open no:assignee` pre-filter server-side if that becomes an issue.
-- No retry/backoff on the webhook POST itself yet — a transient Slack/Discord outage will just error out that repo's notification for the run.
+- GraphQL pagination fetches *all* open issues per repo before filtering - fine for repos with hundreds of issues, but very large repos (10k+ open issues) will be slow and costly on rate-limit points. Worth adding a `search` query with `is:issue is:open no:assignee` pre-filter server-side if that becomes an issue.
+- No retry/backoff on the webhook POST itself yet - a transient Slack/Discord outage will just error out that repo's notification for the run.
