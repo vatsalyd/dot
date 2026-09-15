@@ -158,6 +158,7 @@ def main():
 
     client = GitHubClient(token)
     state = load_state(args.state)
+    sort_by = args.sort_by or config.get("sort_by", "created")
 
     start_time = time.time()
     issues_scanned = 0
@@ -208,11 +209,10 @@ def main():
         if matches:
             matches = sort_issues(matches, sort_by=sort_by)
             print(f"  Found {len(matches)} matching issue(s).")
-            if args.dry_run:
-                for m in matches:
-                    tag = "[REMINDER]" if m.get("is_reminder") else "[NEW]"
-                    print(f"    {tag} #{m['number']} {m['title']}{format_issue_meta(m)} -> {m['url']}")
-            else:
+            for m in matches:
+                tag = "[REMINDER]" if m.get("is_reminder") else "[NEW]"
+                print(f"    {tag} #{m['number']} {m['title']}{format_issue_meta(m)} -> {m['url']}")
+            if not args.dry_run:
                 notify(
                     webhook_url=webhook_url,
                     repo_full_name=full_name,
@@ -267,11 +267,10 @@ def main():
             total_matches += len(matches)
             matches = sort_issues(matches, sort_by=sort_by)
             print(f"  Found {len(matches)} matching issue(s) for {full_name}.")
-            if args.dry_run:
-                for m in matches:
-                    tag = "[REMINDER]" if m.get("is_reminder") else "[NEW]"
-                    print(f"    {tag} #{m['number']} {m['title']}{format_issue_meta(m)} -> {m['url']}")
-            else:
+            for m in matches:
+                tag = "[REMINDER]" if m.get("is_reminder") else "[NEW]"
+                print(f"    {tag} #{m['number']} {m['title']}{format_issue_meta(m)} -> {m['url']}")
+            if not args.dry_run:
                 notify(
                     webhook_url=webhook_url,
                     repo_full_name=full_name,
