@@ -2,12 +2,18 @@
 # Add or remove repos any time -- no code changes needed.
 
 repos:
-  - owner: anthropics
-    name: anthropic-sdk-python
-  - owner: pallets
-    name: flask
-  - owner: psf
-    name: requests
+  - owner: mlflow
+    name: mlflow
+  - owner: kubeflow
+    name: pipelines
+  - owner: deepchem
+    name: deepchem
+  - owner: eellak
+    name: spdx-storage
+  - owner: fossasia
+    name: eventyay
+  - owner: future-agi
+    name: future-agi
 
 filters:
   # Only alert on issues open for at least this many hours (skip brand-new issues
