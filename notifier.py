@@ -12,13 +12,13 @@ def _is_discord(webhook_url: str) -> bool:
 
 def _format_slack(repo_full_name: str, issues: list[dict]) -> dict:
     lines = [f"*<{i['url']}|#{i['number']}> {i['title']}*" for i in issues]
-    text = f"*{repo_full_name}* — {len(issues)} unassigned issue(s) with no open PR:\n" + "\n".join(lines)
+    text = f"*{repo_full_name}* - {len(issues)} unassigned issue(s) with no open PR:\n" + "\n".join(lines)
     return {"text": text}
 
 
 def _format_discord(repo_full_name: str, issues: list[dict]) -> dict:
     lines = [f"[#{i['number']}]({i['url']}) {i['title']}" for i in issues]
-    content = f"**{repo_full_name}** — {len(issues)} unassigned issue(s) with no open PR:\n" + "\n".join(lines)
+    content = f"**{repo_full_name}** - {len(issues)} unassigned issue(s) with no open PR:\n" + "\n".join(lines)
     return {"content": content}
 
 
