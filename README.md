@@ -44,7 +44,7 @@ including GitHub's own UI. It's a good proxy, not a guarantee.
 
 ```bash
 pip install -r requirements.txt
-cp .env.example .env                  # add your GITHUB_TOKEN and WEBHOOK_URL
+cp .env.example .env                  # set GITHUB_TOKEN and either SLACK_BOT_TOKEN (for per-repo channels) or WEBHOOK_URL
 python run.py --dry-run               # auto-loads .env, auto-bootstraps config.yaml, and previews
 python run.py                         # real run
 ```
@@ -55,7 +55,8 @@ python run.py                         # real run
 pip install -r requirements.txt
 cp config.example.yaml config.yaml   # edit the repo list
 export GITHUB_TOKEN=ghp_xxxxxxxx      # classic PAT, no scopes needed for public repos; "repo" scope for private
-export WEBHOOK_URL=https://hooks.slack.com/services/xxx/yyy/zzz
+export SLACK_BOT_TOKEN=xoxb-xxxxxxxx  # optional: automatically creates & posts to #<repo-name> per repo
+# OR: export WEBHOOK_URL=https://hooks.slack.com/services/... (single channel)
 python main.py --repo pallets/flask --dry-run # ad-hoc single repo test
 python main.py --dry-run              # preview without posting or saving state
 python main.py                        # real run
@@ -74,11 +75,11 @@ per token, which is generous for issue-only queries.
 | `run.py` | Streamlined launcher with automatic .env loading and config bootstrap |
 | `main.py` | Orchestrates scan -> filter -> notify -> save state |
 | `github_client.py` | GraphQL queries, pagination, PR cross-reference detection |
-| `notifier.py` | Slack/Discord webhook formatting + chunking |
+| `notifier.py` | Slack/Discord notifications, automatic per-repo channel creation |
 | `state.py` | JSON or SQLite dedupe store, atomic writes, auto-migration |
 | `config.example.yaml` | Repo list + filters, copy to `config.yaml` |
 | `.env.example` | Template for environment variables |
-| `tests/` | Unit test suite (filter logic, GraphQL mocks, state) |
+| `tests/` | Unit test suite (filter logic, GraphQL mocks, state, notifier) |
 
 ## 5. Suggested improvements (roughly in priority order)
 
