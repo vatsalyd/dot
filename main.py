@@ -27,6 +27,7 @@ from state import load_state, save_state, should_notify, mark_notified
 def parse_args():
     p = argparse.ArgumentParser(description="Find unassigned, unclaimed GitHub issues.")
     p.add_argument("--config", default="config.yaml", help="Path to config YAML file.")
+    p.add_argument("--repo", help="Scan a single repository ad-hoc (format: owner/name).")
     p.add_argument("--state", default="state.json", help="Path to state JSON file.")
     p.add_argument("--dry-run", action="store_true", help="Print results, don't send webhook or write state.")
     return p.parse_args()
@@ -63,10 +64,23 @@ def main():
     if not webhook_url and not args.dry_run:
         sys.exit("ERROR: set WEBHOOK_URL env var, or pass --dry-run.")
 
-    with open(args.config) as f:
-        config = yaml.safe_load(f)
+    config = {}
+    if os.path.exists(args.config):
+        with open(args.config) as f:
+            config = yaml.safe_load(f) or {}
+    elif not args.repo:
+        sys.exit(f"ERROR: config file '{args.config}' not found. Copy config.example.yaml to config.yaml or pass --repo owner/name.")
 
-    repos = config["repos"]
+    if args.repo:
+        if "/" not in args.repo:
+            sys.exit(f"ERROR: invalid --repo format '{args.repo}'. Expected 'owner/name'.")
+        owner, name = args.repo.split("/", 1)
+        repos = [{"owner": owner.strip(), "name": name.strip()}]
+    else:
+        repos = config.get("repos", [])
+        if not repos:
+            sys.exit("ERROR: no repositories configured in config file.")
+
     filters = config.get("filters", {})
     page_size = config.get("page_size", 50)
     renotify_after_days = filters.get("renotify_after_days", 7)
