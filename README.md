@@ -90,7 +90,7 @@ per token, which is generous for issue-only queries.
 - Switch `state.json` to SQLite once repo count or issue volume grows (implemented: pass `--state state.db` with automatic migration from `state.json`).
 
 **Automation**
-- Once you're happy with manual runs, move to a scheduled **GitHub Actions workflow** (`schedule: cron`) - free, no server to maintain, and `GITHUB_TOKEN`/`WEBHOOK_URL` live as repo secrets. This is a ~15 line YAML addition, happy to write it when you're ready.
+- Scheduled **GitHub Actions workflow** (`.github/workflows/scan.yml`) with cron trigger and state caching (implemented).
 - Alternative: a simple `cron` entry on a personal server/Raspberry Pi if you want it fully self-hosted.
 
 **Signal quality**
