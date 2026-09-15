@@ -77,6 +77,60 @@ query($owner: String!, $name: String!, $pageSize: Int!, $after: String) {
 }
 """
 
+ORG_SEARCH_QUERY = """
+query($query: String!, $pageSize: Int!, $after: String) {
+  search(query: $query, type: ISSUE, first: $pageSize, after: $after) {
+    issueCount
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    nodes {
+      ... on Issue {
+        number
+        title
+        url
+        createdAt
+        repository {
+          name
+          owner {
+            login
+          }
+        }
+        comments {
+          totalCount
+        }
+        reactions(content: THUMBS_UP) {
+          totalCount
+        }
+        assignees(first: 1) {
+          totalCount
+        }
+        labels(first: 10) {
+          nodes {
+            name
+          }
+        }
+        timelineItems(itemTypes: [CROSS_REFERENCED_EVENT], first: 20) {
+          nodes {
+            ... on CrossReferencedEvent {
+              source {
+                ... on PullRequest {
+                  number
+                  state
+                  isDraft
+                  url
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+"""
+
 
 class GitHubClient:
     def __init__(self, token: str, session: requests.Session | None = None):
@@ -156,6 +210,33 @@ class GitHubClient:
 
             if issues["pageInfo"]["hasNextPage"]:
                 after = issues["pageInfo"]["endCursor"]
+            else:
+                break
+
+    def fetch_org_issues(self, org: str, page_size: int = 50):
+        """
+        Paginates over open, unassigned issues across all repositories in an organization
+        using GitHub's GraphQL search root with 'org:<org> is:issue is:open no:assignee'.
+        """
+        cursor = None
+        search_query = f"org:{org} is:issue is:open no:assignee sort:created-desc"
+        while True:
+            variables = {
+                "query": search_query,
+                "pageSize": page_size,
+                "after": cursor,
+            }
+            data = self._post(ORG_SEARCH_QUERY, variables)
+            search_data = data.get("search", {})
+            nodes = search_data.get("nodes", [])
+
+            for node in nodes:
+                if node and "title" in node:
+                    yield node
+
+            page_info = search_data.get("pageInfo", {})
+            if page_info.get("hasNextPage"):
+                cursor = page_info["endCursor"]
             else:
                 break
 

@@ -13,6 +13,7 @@ Usage:
 """
 
 import argparse
+import collections
 import os
 import sys
 from datetime import datetime, timezone
@@ -28,6 +29,7 @@ def parse_args():
     p = argparse.ArgumentParser(description="Find unassigned, unclaimed GitHub issues.")
     p.add_argument("--config", default="config.yaml", help="Path to config YAML file.")
     p.add_argument("--repo", help="Scan a single repository ad-hoc (format: owner/name).")
+    p.add_argument("--org", help="Scan an entire organization ad-hoc via search (e.g. anthropics).")
     p.add_argument("--max-age-days", type=int, default=None, help="Ignore issues older than this many days (0 = no limit).")
     p.add_argument("--ignore-draft-prs", action="store_true", help="Do not count draft PRs as claiming an issue.")
     p.add_argument("--uncommented-only", action="store_true", help="Only alert on issues with zero comments.")
@@ -110,18 +112,23 @@ def main():
     if os.path.exists(args.config):
         with open(args.config) as f:
             config = yaml.safe_load(f) or {}
-    elif not args.repo:
-        sys.exit(f"ERROR: config file '{args.config}' not found. Copy config.example.yaml to config.yaml or pass --repo owner/name.")
+    elif not args.repo and not args.org:
+        sys.exit(f"ERROR: config file '{args.config}' not found. Copy config.example.yaml to config.yaml or pass --repo/--org.")
 
     if args.repo:
         if "/" not in args.repo:
             sys.exit(f"ERROR: invalid --repo format '{args.repo}'. Expected 'owner/name'.")
         owner, name = args.repo.split("/", 1)
         repos = [{"owner": owner.strip(), "name": name.strip()}]
+        orgs = []
+    elif args.org:
+        repos = []
+        orgs = [args.org.strip()]
     else:
         repos = config.get("repos", [])
-        if not repos:
-            sys.exit("ERROR: no repositories configured in config file.")
+        orgs = config.get("orgs", [])
+        if not repos and not orgs:
+            sys.exit("ERROR: no repositories or organizations configured in config file.")
 
     filters = config.get("filters", {})
     if args.max_age_days is not None:
@@ -208,10 +215,64 @@ def main():
         else:
             print("  No new matches.")
 
+    for org in orgs:
+        print(f"Scanning organization {org}...", file=sys.stderr)
+        org_repo_matches = collections.defaultdict(list)
+        try:
+            for issue in client.fetch_org_issues(org, page_size):
+                if max_age_days and max_age_days > 0 and (issue_age_hours(issue["createdAt"]) / 24) > max_age_days:
+                    break
+
+                if not GitHubClient.is_unassigned(issue):
+                    continue
+                if GitHubClient.has_open_linked_pr(issue, ignore_draft_prs=ignore_draft_prs):
+                    continue
+                if not passes_filters(issue, filters):
+                    continue
+
+                repo_info = issue.get("repository", {})
+                repo_owner = repo_info.get("owner", {}).get("login", org)
+                repo_name = repo_info.get("name", "unknown")
+                full_name = f"{repo_owner}/{repo_name}"
+
+                key = f"{full_name}#{issue['number']}"
+                if not should_notify(state, key, renotify_after_days):
+                    continue
+
+                is_reminder = is_known(state, key)
+                issue["is_reminder"] = is_reminder
+
+                if priority_labels_only and not matches_priority(issue, priority_labels):
+                    print(f"  [LOG ONLY: non-priority] #{issue['number']} {issue['title']}", file=sys.stderr)
+                    continue
+
+                org_repo_matches[full_name].append(issue)
+                mark_notified(state, key)
+        except Exception as e:
+            print(f"  Failed to scan organization {org}: {e}", file=sys.stderr)
+            continue
+
+        for full_name, matches in org_repo_matches.items():
+            total_matches += len(matches)
+            matches = sort_issues(matches, sort_by=sort_by)
+            print(f"  Found {len(matches)} matching issue(s) for {full_name}.")
+            if args.dry_run:
+                for m in matches:
+                    tag = "[REMINDER]" if m.get("is_reminder") else "[NEW]"
+                    print(f"    {tag} #{m['number']} {m['title']}{format_issue_meta(m)} -> {m['url']}")
+            else:
+                notify(
+                    webhook_url=webhook_url,
+                    repo_full_name=full_name,
+                    issues=matches,
+                    slack_bot_token=slack_bot_token,
+                )
+
     if not args.dry_run:
         save_state(state, args.state)
 
-    print(f"\nDone. {total_matches} total new match(es) across {len(repos)} repo(s).")
+    target_count = len(repos) + len(orgs)
+    print(f"\nDone. {total_matches} total new match(es) across {target_count} target(s).")
 
 
 if __name__ == "__main__":
