@@ -5,6 +5,10 @@ config.yaml
 # Runtime state
 state.json
 state.json.tmp
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
 
 # Python cache & virtual environments
 __pycache__/

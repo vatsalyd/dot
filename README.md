@@ -74,7 +74,7 @@ per token, which is generous for issue-only queries.
 - Add a `--repo owner/name` flag to scan a single repo ad-hoc without editing config (implemented).
 - Handle GitHub's secondary rate limits more gracefully (exponential backoff with Retry-After and x-ratelimit-reset inspection) (implemented).
 - Add a unit test suite (mock GraphQL responses) covering the filter logic in `passes_filters` and `has_open_linked_pr` (implemented).
-- Switch `state.json` to SQLite once repo count or issue volume grows - JSON rewrite-on-every-run is fine at small scale but won't scale past a few thousand tracked issues.
+- Switch `state.json` to SQLite once repo count or issue volume grows (implemented: pass `--state state.db` with automatic migration from `state.json`).
 
 **Automation**
 - Once you're happy with manual runs, move to a scheduled **GitHub Actions workflow** (`schedule: cron`) - free, no server to maintain, and `GITHUB_TOKEN`/`WEBHOOK_URL` live as repo secrets. This is a ~15 line YAML addition, happy to write it when you're ready.
