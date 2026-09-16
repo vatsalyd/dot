@@ -4,7 +4,7 @@ Simple cross-platform launcher for the unassigned issue bot.
 
 Automatically:
 1. Loads environment variables from .env if present.
-2. Bootstraps config.yaml from config.example.yaml on first run.
+2. Verifies config.yaml exists (or bootstraps it if an example template is provided).
 3. Validates required tokens and runs the scan with helpful error messages.
 
 Usage:
@@ -42,7 +42,7 @@ def load_dotenv(dotenv_path: str = ".env") -> dict[str, str]:
 
 
 def bootstrap_config(config_path: str = "config.yaml", example_path: str = "config.example.yaml") -> bool:
-    """Creates config.yaml from config.example.yaml if missing and no ad-hoc repo flag is set."""
+    """Creates config.yaml from example_path if missing and template file exists."""
     if not os.path.exists(config_path) and os.path.exists(example_path):
         shutil.copyfile(example_path, config_path)
         print(f"[*] Initialized '{config_path}' from '{example_path}'.", file=sys.stderr)
@@ -76,9 +76,9 @@ def run():
         )
         sys.exit(1)
 
-    # 3. Bootstrap config if running default scan without explicit --repo
+    # 3. Bootstrap config if running default scan without explicit --repo and template exists
     has_repo_flag = any(arg == "--repo" or arg.startswith("--repo=") for arg in sys.argv[1:])
-    if not has_repo_flag and not os.path.exists("config.yaml"):
+    if not has_repo_flag and not os.path.exists("config.yaml") and os.path.exists("config.example.yaml"):
         bootstrap_config("config.yaml", "config.example.yaml")
 
     # 4. Invoke main application directly

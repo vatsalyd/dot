@@ -53,7 +53,7 @@ python run.py                         # real run
 
 ```bash
 pip install -r requirements.txt
-cp config.example.yaml config.yaml   # edit the repo list
+# edit config.yaml to customize repositories or filters if desired
 export GITHUB_TOKEN=ghp_xxxxxxxx      # classic PAT, no scopes needed for public repos; "repo" scope for private
 export SLACK_BOT_TOKEN=xoxb-xxxxxxxx  # optional: automatically creates & posts to #<repo-name> per repo
 # OR: export WEBHOOK_URL=https://hooks.slack.com/services/... (single channel)
@@ -77,7 +77,7 @@ per token, which is generous for issue-only queries.
 | `github_client.py` | GraphQL queries, pagination, PR cross-reference detection |
 | `notifier.py` | Slack/Discord notifications, automatic per-repo channel creation |
 | `state.py` | JSON or SQLite dedupe store, atomic writes, auto-migration |
-| `config.example.yaml` | Repo list + filters, copy to `config.yaml` |
+| `config.yaml` | Repo list + filters to scan |
 | `.env.example` | Template for environment variables |
 | `tests/` | Unit test suite (filter logic, GraphQL mocks, state, notifier) |
 
