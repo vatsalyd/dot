@@ -1,4 +1,4 @@
-# Copy this file to config.yaml and edit the repo list below.
+# Repositories to scan for unassigned issues.
 # Add or remove repos any time -- no code changes needed.
 
 repos:
@@ -14,6 +14,9 @@ repos:
     name: eventyay
   - owner: future-agi
     name: future-agi
+  - owner: zulip
+    name: zulip
+
 
 # Optional: Scan entire GitHub organizations via search (org:<name> is:issue is:open no:assignee).
 # orgs:
@@ -22,10 +25,10 @@ repos:
 filters:
   # Only alert on issues open for at least this many hours (skip brand-new issues
   # people haven't had a chance to claim yet). Set to 0 to disable.
-  min_age_hours: 24
+  min_age_hours: 0
 
   # Ignore issues older than this many days (e.g., 30, 60, or 90). Set to 0 to disable.
-  max_age_days: 60
+  max_age_days: 30
 
   # Skip issues that have any of these labels (case-insensitive).
   exclude_labels:

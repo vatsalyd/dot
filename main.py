@@ -116,7 +116,7 @@ def main():
         with open(args.config) as f:
             config = yaml.safe_load(f) or {}
     elif not args.repo and not args.org:
-        sys.exit(f"ERROR: config file '{args.config}' not found. Copy config.example.yaml to config.yaml or pass --repo/--org.")
+        sys.exit(f"ERROR: config file '{args.config}' not found. Ensure config.yaml exists or pass --repo/--org.")
 
     if args.repo:
         if "/" not in args.repo:

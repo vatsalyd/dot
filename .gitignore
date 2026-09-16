@@ -1,6 +1,5 @@
 # Environment & secrets
 .env
-config.yaml
 
 # Runtime state
 state.json
