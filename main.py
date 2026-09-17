@@ -233,26 +233,36 @@ def main():
                 if is_reminder:
                     issues_reminded += 1
                 matches.append(issue)
-                mark_notified(state, key)
         except Exception as e:
             print(f"  Failed to scan {full_name}: {e}", file=sys.stderr)
             continue
 
-        total_matches += len(matches)
         if matches:
             matches = sort_issues(matches, sort_by=sort_by)
             print(f"  Found {len(matches)} matching issue(s).")
             for m in matches:
                 tag = "[REMINDER]" if m.get("is_reminder") else "[NEW]"
                 print(f"    {tag} #{m['number']} {m['title']}{format_issue_meta(m)} -> {m['url']}")
+
+            notified_ok = True
             if not args.dry_run:
-                notify(
-                    webhook_url=webhook_url,
-                    repo_full_name=full_name,
-                    issues=matches,
-                    slack_bot_token=slack_bot_token,
-                    channel_override=channel_override,
-                )
+                try:
+                    notify(
+                        webhook_url=webhook_url,
+                        repo_full_name=full_name,
+                        issues=matches,
+                        slack_bot_token=slack_bot_token,
+                        channel_override=channel_override,
+                    )
+                except Exception as e:
+                    notified_ok = False
+                    print(f"  ERROR: Failed to notify for {full_name}: {e}", file=sys.stderr)
+
+            if notified_ok or args.dry_run:
+                total_matches += len(matches)
+                if not args.dry_run:
+                    for m in matches:
+                        mark_notified(state, f"{full_name}#{m['number']}")
         else:
             print("  No new matches.")
 
@@ -291,25 +301,35 @@ def main():
                 if is_reminder:
                     issues_reminded += 1
                 org_repo_matches[full_name].append(issue)
-                mark_notified(state, key)
         except Exception as e:
             print(f"  Failed to scan organization {org}: {e}", file=sys.stderr)
             continue
 
         for full_name, matches in org_repo_matches.items():
-            total_matches += len(matches)
             matches = sort_issues(matches, sort_by=sort_by)
             print(f"  Found {len(matches)} matching issue(s) for {full_name}.")
             for m in matches:
                 tag = "[REMINDER]" if m.get("is_reminder") else "[NEW]"
                 print(f"    {tag} #{m['number']} {m['title']}{format_issue_meta(m)} -> {m['url']}")
+
+            notified_ok = True
             if not args.dry_run:
-                notify(
-                    webhook_url=webhook_url,
-                    repo_full_name=full_name,
-                    issues=matches,
-                    slack_bot_token=slack_bot_token,
-                )
+                try:
+                    notify(
+                        webhook_url=webhook_url,
+                        repo_full_name=full_name,
+                        issues=matches,
+                        slack_bot_token=slack_bot_token,
+                    )
+                except Exception as e:
+                    notified_ok = False
+                    print(f"  ERROR: Failed to notify for {full_name}: {e}", file=sys.stderr)
+
+            if notified_ok or args.dry_run:
+                total_matches += len(matches)
+                if not args.dry_run:
+                    for m in matches:
+                        mark_notified(state, f"{full_name}#{m['number']}")
 
     if not args.dry_run:
         save_state(state, args.state)
