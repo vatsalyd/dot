@@ -51,11 +51,12 @@ def issue_age_hours(created_at: str) -> float:
 
 def passes_filters(issue_node: dict, filters: dict) -> bool:
     age_hours = issue_age_hours(issue_node["createdAt"])
-    if age_hours < filters.get("min_age_hours", 0):
+    min_age_hours = filters.get("min_age_hours") or 0
+    if age_hours < min_age_hours:
         return False
 
-    max_age_days = filters.get("max_age_days", 0)
-    if max_age_days and max_age_days > 0 and (age_hours / 24) > max_age_days:
+    max_age_days = filters.get("max_age_days") or 0
+    if max_age_days > 0 and (age_hours / 24) > max_age_days:
         return False
 
     # Staleness tier: comment count filtering
@@ -66,15 +67,41 @@ def passes_filters(issue_node: dict, filters: dict) -> bool:
         return False
 
     labels = {l["name"].lower() for l in issue_node["labels"]["nodes"]}
-    exclude = {l.lower() for l in filters.get("exclude_labels", [])}
+    exclude = {l.lower() for l in (filters.get("exclude_labels") or [])}
     if labels & exclude:
         return False
 
-    include = {l.lower() for l in filters.get("include_labels", [])}
+    include = {l.lower() for l in (filters.get("include_labels") or [])}
     if include and not (labels & include):
         return False
 
     return True
+
+
+def normalize_repo_entry(repo_entry) -> tuple[str, str, str | None] | None:
+    """Normalizes a repo config entry to (owner, name, channel_override).
+
+    Supports:
+    - Dict format: {"owner": "mlflow", "name": "mlflow", "channel": "#custom"}
+    - String format: "mlflow/mlflow"
+    Returns None if entry is invalid.
+    """
+    if isinstance(repo_entry, str):
+        cleaned = repo_entry.strip()
+        if "/" not in cleaned:
+            return None
+        owner, name = cleaned.split("/", 1)
+        owner, name = owner.strip(), name.strip()
+        if not owner or not name:
+            return None
+        return owner, name, None
+    elif isinstance(repo_entry, dict):
+        owner = repo_entry.get("owner")
+        name = repo_entry.get("name")
+        if not owner or not name:
+            return None
+        return str(owner).strip(), str(name).strip(), repo_entry.get("channel")
+    return None
 
 
 def matches_priority(issue_node: dict, priority_labels: list[str]) -> bool:
@@ -128,12 +155,12 @@ def main():
         repos = []
         orgs = [args.org.strip()]
     else:
-        repos = config.get("repos", [])
-        orgs = config.get("orgs", [])
+        repos = config.get("repos") or []
+        orgs = config.get("orgs") or []
         if not repos and not orgs:
             sys.exit("ERROR: no repositories or organizations configured in config file.")
 
-    filters = config.get("filters", {})
+    filters = config.get("filters") or {}
     if args.max_age_days is not None:
         filters["max_age_days"] = args.max_age_days
     if args.ignore_draft_prs:
@@ -149,12 +176,14 @@ def main():
     priority_labels = filters.get(
         "priority_labels",
         ["good-first-issue", "good first issue", "help-wanted", "help wanted"],
-    )
+    ) or []
 
     ignore_draft_prs = filters.get("ignore_draft_prs", False)
-    max_age_days = filters.get("max_age_days", 0)
-    page_size = config.get("page_size", 50)
+    max_age_days = filters.get("max_age_days", 0) or 0
+    page_size = config.get("page_size", 50) or 50
     renotify_after_days = filters.get("renotify_after_days", 7)
+    if renotify_after_days is None:
+        renotify_after_days = 7
 
     client = GitHubClient(token)
     state = load_state(args.state)
@@ -165,8 +194,12 @@ def main():
     issues_reminded = 0
     total_matches = 0
 
-    for repo in repos:
-        owner, name = repo["owner"], repo["name"]
+    for repo_entry in repos:
+        normalized = normalize_repo_entry(repo_entry)
+        if not normalized:
+            print(f"  Skipping invalid repo entry '{repo_entry}': expected 'owner/name' or dict with owner and name", file=sys.stderr)
+            continue
+        owner, name, channel_override = normalized
         full_name = f"{owner}/{name}"
         print(f"Scanning {full_name}...", file=sys.stderr)
 
@@ -218,7 +251,7 @@ def main():
                     repo_full_name=full_name,
                     issues=matches,
                     slack_bot_token=slack_bot_token,
-                    channel_override=repo.get("channel"),
+                    channel_override=channel_override,
                 )
         else:
             print("  No new matches.")
